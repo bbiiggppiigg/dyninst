@@ -335,6 +335,15 @@ void Block::removeTarget(Edge * e)
 void Block::removeSource(Edge * e) {
     if (e == NULL) return;
     boost::lock_guard<Block> g(*this);
+    // Every edge whose target is unknown or invalid ends at the single sink
+    // block, so its in-degree grows with the binary (~1M incoming edges for a
+    // 1 GB library) and a value scan here costs O(in-degree) per removal under
+    // the sink's lock.  Erase by pointer instead; delete_bogus_edges already
+    // skips removeSource on the sink for the same reason.
+    if (_start == std::numeric_limits<Address>::max()) {
+        _srclist.erase(e);
+        return;
+    }
     auto it = _srclist.begin();
     while(it != _srclist.end()){
       auto cur_it = it;
